@@ -1,67 +1,82 @@
-#include <vector>
-#include <string>
-#include <iostream>
-#include <regex>
-#include "tokenizer.h"
-#include "chunks.h"
-#include "../utils/string_util.h"
-
+#ifndef lib
+	#define lib
+	#include <vector>
+	#include <string>
+	#include <iostream>
+	#include <regex>
+	#include "tokenizer.h"
+	#include "chunks.h"
+	#include "../utils/string_util.h"
+#endif
 
 std::vector<std::string> tokenize(std::string& input) {
 	int start_blank = 0;
 	int end_blank = 0;
 	int tag_name_end = 0;
-	std::string::iterator tag_name_begin;
+	enum State {
+		Ready,
+		TagName,
+		InnerAttrName,
+		InnerAttrVal,
+	};
+	enum Quontation {
+		Double,
+		Single
+	};
+	Quontation quot;
+	State state = Ready;
+	bool waitNspace = false;
+	bool safeNspace = false;
+	std::string::iterator begin_cache;
+	std::string::iterator end_cache;
 	std::string tag;
 	std::string inner;
-	int state = 0;
-	/*
-	0:default
-	1:tag_name
-	2;attribute
-	*/
+	bool cached = false;
 	std::vector<std::string> sprited;
 	for (std::string::iterator current_str = input.begin(); current_str != input.end();++current_str) {
-		if (state == 0) {
-			if (*current_str != '<') {
-				continue;
+		if (waitNspace && *current_str == ' ') continue;
+		waitNspace = false;
+		switch (state) {
+		case Ready:
+			if (*current_str == '<') {
+				state = TagName;
+				begin_cache = current_str + 1;
 			};
-			/*
-			switch (*current_str) {
-			case ' ':
-				continue;
-			case '	':
-				continue;
-			default:
-				break;
+			break;
+		case TagName:
+			if (*current_str == '>' || *current_str == ' ') {
+				std::cout << iterator_substr(begin_cache, current_str) << std::endl;
+				state = (*current_str == '>') ? Ready : InnerAttrName;
+				waitNspace = true;
 			};
-			*/
-		};
-		if (state == 1) {
-			switch (*current_str){
-			case ' ':
-			case '>':
-				std::cout << iterator_substr(tag_name_begin, current_str) << std::endl;
-				state = 2;
-			default:
-				break;
+			break;
+		case InnerAttrName:
+			if (!cached) {
+				begin_cache = current_str;
+				cached = true;
 			};
-			
+			if (*current_str == '=' || *current_str == '>' || *current_str == ' ') {
+				std::cout << iterator_substr(begin_cache, current_str) << std::endl;
+				state = (*current_str == '>') ? Ready : InnerAttrName;
+				if (*current_str == '=') state = InnerAttrVal;
+				waitNspace = true;
+				cached = false;
+			};
+			break;
+		case InnerAttrVal:
+			if (!cached) {
+				begin_cache = current_str;
+				cached = true;
+			};
+			if (*current_str == '>' || *current_str == ' ') {
+				std::cout << iterator_substr(begin_cache, current_str) << std::endl;
+				state = (*current_str == '>') ? Ready :InnerAttrName;
+				waitNspace = true;
+				cached = false;
+			};
+			break;
 		};
-		if (state == 2) {
-
-		}
-		if (*current_str == '<') {
-			state = 1;
-			tag_name_begin = current_str + 1;
-		};
-		if (*current_str == '>') {
-			state = 0;
-		};
-		//std::cout << state <<':'<< *current_str << std::endl;
-	};
-	for (const auto& str : sprited) {
-		std::cout << str << '\n';
+		std::cout << state << ':' << *current_str << std::endl;
 	};
 	return sprited;
 };
