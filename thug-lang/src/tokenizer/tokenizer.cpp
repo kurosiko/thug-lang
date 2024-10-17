@@ -1,82 +1,110 @@
-#ifndef lib
-	#define lib
-	#include <vector>
-	#include <string>
-	#include <iostream>
-	#include <regex>
-	#include "tokenizer.h"
-	#include "chunks.h"
-	#include "../utils/string_util.h"
+#ifndef token
+#define token
+#include <iostream>
+#include "./tokenizer.h"
 #endif
 
-std::vector<std::string> tokenize(std::string& input) {
-	int start_blank = 0;
-	int end_blank = 0;
-	int tag_name_end = 0;
-	enum State {
-		Ready,
-		TagName,
-		InnerAttrName,
-		InnerAttrVal,
-	};
-	enum Quontation {
-		Double,
-		Single
-	};
-	Quontation quot;
+std::vector<std::pair<TokenizeKey, std::string>> Tokenizer::tokenize(std::string& input) {
 	State state = Ready;
 	bool waitNspace = false;
-	bool safeNspace = false;
-	std::string::iterator begin_cache;
-	std::string::iterator end_cache;
-	std::string tag;
-	std::string inner;
-	bool cached = false;
-	std::vector<std::string> sprited;
-	for (std::string::iterator current_str = input.begin(); current_str != input.end();++current_str) {
-		if (waitNspace && *current_str == ' ') continue;
-		waitNspace = false;
-		switch (state) {
+	bool waitspace = false;
+	std::string::iterator cache_it;
+	bool init = false;
+	Quot quot;
+	for (std::string::iterator it = input.begin(); it != input.end(); ++it) {
+		if (waitNspace && *it == ' ') continue;
+		switch (state)
+		{
 		case Ready:
-			if (*current_str == '<') {
+			if (*it == '<') {
+				push_mem(TAG_OPEN, std::string("<"));
+				cache_it = it + 1;
 				state = TagName;
-				begin_cache = current_str + 1;
+				
 			};
 			break;
 		case TagName:
-			if (*current_str == '>' || *current_str == ' ') {
-				std::cout << iterator_substr(begin_cache, current_str) << std::endl;
-				state = (*current_str == '>') ? Ready : InnerAttrName;
-				waitNspace = true;
+			if (!init) {
+				init = true;
+				if (*it == '/') {
+					push_mem(SLASH, std::string("/"));
+					cache_it = it + 1;
+					continue;
+				};
 			};
+			if (*it == '>' || *it == ' ' || *it == '/') {
+				if (*it == '>') {
+					push_mem(TAG_NAME, std::string(cache_it, it-1));
+					push_mem(TAG_CLOSE, std::string(">"));
+					state = Ready;
+				}
+				else if (*it == '/' && *(it+1) == '>') {
+					push_mem(TAG_SELF, std::string("/"));
+				}
+				else if (*it == ' ') {
+					push_mem(TAG_NAME, std::string(cache_it, it));
+					state = InnerAttrName;
+				};
+				waitNspace = true;
+				init = false;
+			};
+			
 			break;
 		case InnerAttrName:
-			if (!cached) {
-				begin_cache = current_str;
-				cached = true;
+			if (!init) {
+				init = true;
+				cache_it = it;
 			};
-			if (*current_str == '=' || *current_str == '>' || *current_str == ' ') {
-				std::cout << iterator_substr(begin_cache, current_str) << std::endl;
-				state = (*current_str == '>') ? Ready : InnerAttrName;
-				if (*current_str == '=') state = InnerAttrVal;
+			if (*it == '=' || *it == '>' || *it == ' ' || *it == '/') {
+				if (*it == '=') {
+					push_mem(ATTR_NAME, std::string(cache_it, it-1));
+					push_mem(EQUAL, std::string("="));
+					state = InnerAttrVal;
+				}else if (*it == ' ') {
+					push_mem(ATTR_NAME, std::string(cache_it, it));
+				}else if (*it == '/' && *(it+1) == '>') {
+					push_mem(TAG_SELF, std::string("/"));
+				}else if (*it == '>') {
+					push_mem(TAG_NAME, std::string(cache_it, it - 1));
+					push_mem(TAG_CLOSE, std::string(">"));
+					state = Ready;
+				};
 				waitNspace = true;
-				cached = false;
+				init = false;
 			};
 			break;
 		case InnerAttrVal:
-			if (!cached) {
-				begin_cache = current_str;
-				cached = true;
-			};
-			if (*current_str == '>' || *current_str == ' ') {
-				std::cout << iterator_substr(begin_cache, current_str) << std::endl;
-				state = (*current_str == '>') ? Ready :InnerAttrName;
+			if (!init) {
+				init = true;
+				cache_it = it;
 				waitNspace = true;
-				cached = false;
+				if (*it == '\'') {
+					push_mem(SINGLE_QUOT, std::string("'"));
+					quot = Single;
+				}else if (*it == '"') { 
+					push_mem(DOUBLE_QUOT, std::string("\""));// doesn't work
+					quot = Double;
+				}
+				else throw std::runtime_error("InnerAttVal must be started by single or double quot.");
+				cache_it = it;
+			};
+			if ((*it == '\'' && quot == Single && *(it - 1) != '\\') || (*it == '"' && quot == Double && *(it - 1) != '\\')) {
+				state = InnerAttrVal;
+				waitNspace = true;
+				init = false;
+			}
+			else if(*it == ' ' ){
+				waitNspace = true;
 			};
 			break;
-		};
-		std::cout << state << ':' << *current_str << std::endl;
+		default:
+			break;
+		}
+		std::cout << *it << ':' << state << std::endl;
 	};
-	return sprited;
+	for (auto&& el : tokenized) std::cout << "Tokenize:" << el.first << ':' << el.second << std::endl;
+	return tokenized;
+};
+void Tokenizer::push_mem(TokenizeKey key, std::string val) { 
+	tokenized.push_back(std::make_pair(key, val));
 };

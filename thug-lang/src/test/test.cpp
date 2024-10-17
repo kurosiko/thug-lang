@@ -5,7 +5,8 @@
 #include "test.h"
 #include "../tokenizer/tokenizer.h"
 void test() {
-	std::string str = """<html           idonthaveval  class     =   'test' id ='tag'>This is test  </br >  <   label>test</label>Do u understand?</html>""";
-	tokenize(str);
+	std::string str = """<TAG class=\"  CLS1 CLS2 CLS3\"/>""";
+	Tokenizer tokenizer;
+	tokenizer.tokenize(str);
 	return;
 };
