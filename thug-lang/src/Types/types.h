@@ -16,6 +16,7 @@ enum State {
 	TagName,
 	InnerAttrName,
 	InnerAttrVal,
+	InnerAttrVal_main
 };
 enum Quot {
 	Single,

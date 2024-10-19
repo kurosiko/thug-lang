@@ -5,7 +5,7 @@
 #include "test.h"
 #include "../tokenizer/tokenizer.h"
 void test() {
-	std::string str = """<TAG class=\"  CLS1 CLS2 CLS3\"/>""";
+	std::string str = "<TAG novalcls cls=\"test test2\" nvalcls2 >This is inner text</TAG>";
 	Tokenizer tokenizer;
 	tokenizer.tokenize(str);
 	return;

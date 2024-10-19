@@ -12,7 +12,7 @@ std::vector<std::pair<TokenizeKey, std::string>> Tokenizer::tokenize(std::string
 	bool init = false;
 	Quot quot;
 	for (std::string::iterator it = input.begin(); it != input.end(); ++it) {
-		if (waitNspace && *it == ' ') continue;
+		if (waitNspace && *it == ' ') { std::cout << '#' << std::endl; continue; };
 		switch (state)
 		{
 		case Ready:
@@ -34,12 +34,14 @@ std::vector<std::pair<TokenizeKey, std::string>> Tokenizer::tokenize(std::string
 			};
 			if (*it == '>' || *it == ' ' || *it == '/') {
 				if (*it == '>') {
-					push_mem(TAG_NAME, std::string(cache_it, it-1));
+					push_mem(TAG_NAME, std::string(cache_it, it));
 					push_mem(TAG_CLOSE, std::string(">"));
 					state = Ready;
 				}
 				else if (*it == '/' && *(it+1) == '>') {
 					push_mem(TAG_SELF, std::string("/"));
+					push_mem(TAG_CLOSE, std::string(">"));
+					state = Ready;
 				}
 				else if (*it == ' ') {
 					push_mem(TAG_NAME, std::string(cache_it, it));
@@ -51,21 +53,30 @@ std::vector<std::pair<TokenizeKey, std::string>> Tokenizer::tokenize(std::string
 			
 			break;
 		case InnerAttrName:
+			std::cout << "Attr" << std::endl;
 			if (!init) {
 				init = true;
+				waitNspace = false;
 				cache_it = it;
 			};
 			if (*it == '=' || *it == '>' || *it == ' ' || *it == '/') {
+				if (*it == ' ') {
+					std::cout << (*it == ' ')<< std::endl;};
 				if (*it == '=') {
-					push_mem(ATTR_NAME, std::string(cache_it, it-1));
+					if (cache_it != it) { push_mem(ATTR_NAME, std::string(cache_it, it)); };
 					push_mem(EQUAL, std::string("="));
 					state = InnerAttrVal;
-				}else if (*it == ' ') {
+				}
+				else if (*it == ' ') {
 					push_mem(ATTR_NAME, std::string(cache_it, it));
-				}else if (*it == '/' && *(it+1) == '>') {
+				}
+				else if (*it == '/' && *(it+1) == '>') {
+					if (cache_it != it) { push_mem(ATTR_NAME, std::string(cache_it, it)); };
 					push_mem(TAG_SELF, std::string("/"));
-				}else if (*it == '>') {
-					push_mem(TAG_NAME, std::string(cache_it, it - 1));
+					push_mem(TAG_CLOSE, std::string(">"));
+					state = Ready;
+				}
+				else if (*it == '>') {
 					push_mem(TAG_CLOSE, std::string(">"));
 					state = Ready;
 				};
@@ -74,31 +85,49 @@ std::vector<std::pair<TokenizeKey, std::string>> Tokenizer::tokenize(std::string
 			};
 			break;
 		case InnerAttrVal:
-			if (!init) {
-				init = true;
-				cache_it = it;
-				waitNspace = true;
+			if (*it == '\'' || *it == '"') {
 				if (*it == '\'') {
 					push_mem(SINGLE_QUOT, std::string("'"));
 					quot = Single;
-				}else if (*it == '"') { 
-					push_mem(DOUBLE_QUOT, std::string("\""));// doesn't work
+				}
+				else if (*it == '"') {
+					push_mem(DOUBLE_QUOT, std::string("\""));
 					quot = Double;
 				}
-				else throw std::runtime_error("InnerAttVal must be started by single or double quot.");
+				else {
+					throw std::runtime_error("InnerAttVal must be started by single or double quot.");
+				};
+				state = InnerAttrVal_main;
+				init = false;
+				waitNspace = true;
+				continue;
+			};
+			break;
+		case InnerAttrVal_main:
+			if (!init) {
+				init = true;
+				waitNspace = false;
 				cache_it = it;
 			};
-			if ((*it == '\'' && quot == Single && *(it - 1) != '\\') || (*it == '"' && quot == Double && *(it - 1) != '\\')) {
-				state = InnerAttrVal;
+			if ((*it == '\'' && quot == Single) || (*it == '"' && quot == Double)) {
+				if (*(it - 1) != ' ') {
+					push_mem(ATTR_VAL, std::string(cache_it, it));
+				};
+				if (quot == Single) {
+					push_mem(SINGLE_QUOT, std::string("'"));
+				}
+				else {
+					push_mem(DOUBLE_QUOT, std::string("\""));
+				};
+				state = InnerAttrName;
 				waitNspace = true;
 				init = false;
-			}
-			else if(*it == ' ' ){
+			};
+			if (*it == ' ') {
+				push_mem(ATTR_VAL, std::string(cache_it, it));
+				init = false;
 				waitNspace = true;
 			};
-			break;
-		default:
-			break;
 		}
 		std::cout << *it << ':' << state << std::endl;
 	};
