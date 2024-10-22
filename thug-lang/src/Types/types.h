@@ -9,14 +9,14 @@ enum TokenizeKey {
 	EQUAL,
 	DOUBLE_QUOT,
 	SINGLE_QUOT,
-	INNER_ELEMENT,
+	INNER_TEXT
 };
 enum State {
 	Ready,
 	TagName,
 	InnerAttrName,
 	InnerAttrVal,
-	InnerAttrVal_main
+	InnerAttrValMain
 };
 enum Quot {
 	Single,
